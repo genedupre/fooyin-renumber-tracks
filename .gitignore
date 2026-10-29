@@ -1,0 +1,8 @@
+/build*/
+/imports/
+/bin/
+*.user
+*.log
+/CMakeUserPresets.json
+/dist/
+TODO.txt
