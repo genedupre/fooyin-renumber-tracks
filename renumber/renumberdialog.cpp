@@ -2,12 +2,16 @@
 #include "renumberdialog.h"
 #include <core/library/musiclibrary.h>
 #include <QCheckBox>
+#include <QDropEvent>
+#include <QEvent>
 #include <QFileInfo>
 #include <QDialogButtonBox>
 #include <QHeaderView>
 #include <QLabel>
 #include <QPushButton>
+#include <QShortcut>
 #include <QSpinBox>
+#include <QTimer>
 #include <QTreeWidget>
 #include <QVBoxLayout>
 #include <algorithm>
@@ -38,11 +42,11 @@ RenumberDialog::RenumberDialog(const TrackList& tracks, MusicLibrary* library, Q
     : QDialog(parent), m_tracks(tracks), m_library(library)
 {
     setWindowTitle(tr("Renumber Tracks"));
-    resize(700, 500);
+    resize(750, 550);
     auto* layout = new QVBoxLayout(this);
 
-    auto* desc = new QLabel(tr("Reorder tracks with the buttons, then apply to write new track numbers.\n"
-                                "Tracks are grouped by disc number. Each disc renumbers independently."), this);
+    auto* desc = new QLabel(tr("Reorder tracks with drag-drop or the buttons. Move tracks between discs to reassign.\n"
+                                "Each disc renumbers independently starting from the chosen number."), this);
     desc->setWordWrap(true);
     layout->addWidget(desc);
 
@@ -66,21 +70,41 @@ RenumberDialog::RenumberDialog(const TrackList& tracks, MusicLibrary* library, Q
     m_tree->setRootIsDecorated(true);
     m_tree->setSelectionMode(QAbstractItemView::ExtendedSelection);
     m_tree->header()->setStretchLastSection(true);
+    m_tree->setDragEnabled(true);
+    m_tree->setAcceptDrops(true);
     m_tree->setDragDropMode(QAbstractItemView::InternalMove);
     m_tree->setDefaultDropAction(Qt::MoveAction);
+    m_tree->viewport()->installEventFilter(this);
     layout->addWidget(m_tree, 1);
 
     auto* moveLayout = new QHBoxLayout;
     auto* moveUp = new QPushButton(tr("Move Up"), this);
     auto* moveDown = new QPushButton(tr("Move Down"), this);
-    moveLayout->addStretch();
     moveLayout->addWidget(moveUp);
     moveLayout->addWidget(moveDown);
+    moveLayout->addSpacing(20);
+    moveLayout->addWidget(new QLabel(tr("Move to disc:"), this));
+    m_discSpin = new QSpinBox(this);
+    m_discSpin->setRange(1, 99);
+    m_discSpin->setValue(1);
+    moveLayout->addWidget(m_discSpin);
+    m_moveToDiscBtn = new QPushButton(tr("Move"), this);
+    moveLayout->addWidget(m_moveToDiscBtn);
+    moveLayout->addSpacing(20);
+    auto* addDiscBtn = new QPushButton(tr("Add Disc"), this);
+    moveLayout->addWidget(addDiscBtn);
     moveLayout->addStretch();
     layout->addLayout(moveLayout);
 
     connect(moveUp, &QPushButton::clicked, this, [this] { moveSelected(-1); });
     connect(moveDown, &QPushButton::clicked, this, [this] { moveSelected(1); });
+    connect(m_moveToDiscBtn, &QPushButton::clicked, this, &RenumberDialog::moveToDisc);
+    connect(addDiscBtn, &QPushButton::clicked, this, &RenumberDialog::addDisc);
+
+    auto* upShortcut = new QShortcut(QKeySequence(Qt::ALT | Qt::Key_Up), this);
+    auto* downShortcut = new QShortcut(QKeySequence(Qt::ALT | Qt::Key_Down), this);
+    connect(upShortcut, &QShortcut::activated, this, [this] { moveSelected(-1); });
+    connect(downShortcut, &QShortcut::activated, this, [this] { moveSelected(1); });
 
     auto* buttons = new QDialogButtonBox(QDialogButtonBox::Cancel, this);
     auto* applyBtn = buttons->addButton(tr("Apply"), QDialogButtonBox::AcceptRole);
@@ -89,7 +113,28 @@ RenumberDialog::RenumberDialog(const TrackList& tracks, MusicLibrary* library, Q
     connect(buttons, &QDialogButtonBox::rejected, this, &QDialog::reject);
     connect(applyBtn, &QPushButton::clicked, this, &RenumberDialog::apply);
 
+    connect(m_tree, &QTreeWidget::itemSelectionChanged, this, [this] {
+        const auto selected = m_tree->selectedItems();
+        if(!selected.isEmpty()) {
+            auto* parent = selected.first()->parent();
+            if(parent) {
+                int discIdx = m_tree->indexOfTopLevelItem(parent);
+                if(discIdx >= 0 && discIdx < m_groups.size()) {
+                    m_discSpin->setValue(m_groups[discIdx].disc);
+                }
+            }
+        }
+    });
+
     populateTree();
+}
+
+bool RenumberDialog::eventFilter(QObject* obj, QEvent* event)
+{
+    if(obj == m_tree->viewport() && event->type() == QEvent::Drop) {
+        QTimer::singleShot(0, this, &RenumberDialog::syncFromTree);
+    }
+    return QDialog::eventFilter(obj, event);
 }
 
 void RenumberDialog::populateTree()
@@ -150,8 +195,99 @@ void RenumberDialog::moveSelected(int direction)
     updatePreview();
 }
 
+void RenumberDialog::moveToDisc()
+{
+    const auto selected = m_tree->selectedItems();
+    if(selected.isEmpty()) return;
+
+    const int targetDisc = m_discSpin->value();
+    int targetGroupIdx = -1;
+    for(int g = 0; g < m_groups.size(); ++g) {
+        if(m_groups[g].disc == targetDisc) { targetGroupIdx = g; break; }
+    }
+    if(targetGroupIdx < 0) {
+        m_groups.append(DiscGroup{targetDisc, {}});
+        targetGroupIdx = m_groups.size() - 1;
+    }
+
+    QList<int> trackIndicesToMove;
+    for(auto* item : selected) {
+        if(!item->parent()) continue;
+        int trackIdx = item->data(0, Qt::UserRole).toInt();
+        trackIndicesToMove.append(trackIdx);
+    }
+    if(trackIndicesToMove.isEmpty()) return;
+
+    for(int g = 0; g < m_groups.size(); ++g) {
+        if(g == targetGroupIdx) continue;
+        auto& indices = m_groups[g].trackIndices;
+        indices.erase(std::remove_if(indices.begin(), indices.end(),
+            [&](int idx) { return trackIndicesToMove.contains(idx); }), indices.end());
+    }
+
+    for(int idx : trackIndicesToMove) {
+        if(!m_groups[targetGroupIdx].trackIndices.contains(idx)) {
+            m_groups[targetGroupIdx].trackIndices.append(idx);
+        }
+    }
+
+    m_groups.erase(std::remove_if(m_groups.begin(), m_groups.end(),
+        [](const DiscGroup& g) { return g.trackIndices.isEmpty(); }), m_groups.end());
+
+    std::stable_sort(m_groups.begin(), m_groups.end(),
+        [](const DiscGroup& a, const DiscGroup& b) { return a.disc < b.disc; });
+
+    updatePreview();
+}
+
+void RenumberDialog::addDisc()
+{
+    int maxDisc = 0;
+    for(const auto& g : m_groups) maxDisc = std::max(maxDisc, g.disc);
+    const int newDisc = maxDisc + 1;
+    m_groups.append(DiscGroup{newDisc, {}});
+    m_discSpin->setValue(newDisc);
+    updatePreview();
+}
+
+void RenumberDialog::syncFromTree()
+{
+    if(m_syncing) return;
+    m_syncing = true;
+
+    QList<DiscGroup> newGroups;
+    for(int g = 0; g < m_tree->topLevelItemCount(); ++g) {
+        auto* groupItem = m_tree->topLevelItem(g);
+        if(!groupItem) continue;
+
+        int disc = 0;
+        for(const auto& old : m_groups) {
+            if(tr("Disc %1").arg(old.disc) == groupItem->text(0)) { disc = old.disc; break; }
+        }
+        if(disc == 0 && g < m_groups.size()) disc = m_groups[g].disc;
+
+        DiscGroup group{disc, {}};
+        for(int c = 0; c < groupItem->childCount(); ++c) {
+            auto* child = groupItem->child(c);
+            group.trackIndices.append(child->data(0, Qt::UserRole).toInt());
+        }
+        if(!group.trackIndices.isEmpty()) newGroups.append(group);
+    }
+
+    m_groups = newGroups;
+    updatePreview();
+    m_syncing = false;
+}
+
 void RenumberDialog::updatePreview()
 {
+    if(m_syncing) return;
+
+    QSet<int> selectedTrackIndices;
+    for(auto* item : m_tree->selectedItems()) {
+        if(item->parent()) selectedTrackIndices.insert(item->data(0, Qt::UserRole).toInt());
+    }
+
     m_tree->clear();
     const int start = m_startNumber->value();
     const bool pad = m_padNumbers->isChecked();
@@ -172,6 +308,7 @@ void RenumberDialog::updatePreview()
             item->setText(3, t.artistsJoined(u"; "_s));
             item->setText(4, QFileInfo(t.filepath()).fileName());
             item->setData(0, Qt::UserRole, trackIdx);
+            if(selectedTrackIndices.contains(trackIdx)) item->setSelected(true);
             ++newNum;
         }
     }
@@ -192,10 +329,11 @@ void RenumberDialog::apply()
         for(int trackIdx : group.trackIndices) {
             Track t = m_tracks[trackIdx];
             const QString newTrackStr = padded(newNum, pad);
-            if(t.trackNumber() != newTrackStr) {
-                t.setTrackNumber(newTrackStr);
-                changed.push_back(t);
-            }
+            const QString newDiscStr = QString::number(group.disc);
+            bool modified = false;
+            if(t.trackNumber() != newTrackStr) { t.setTrackNumber(newTrackStr); modified = true; }
+            if(t.discNumber() != newDiscStr) { t.setDiscNumber(newDiscStr); modified = true; }
+            if(modified) changed.push_back(t);
             ++newNum;
         }
     }
