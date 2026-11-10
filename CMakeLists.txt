@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.25)
-project(FooyinRenumberTracks VERSION 0.1.1 LANGUAGES CXX)
+project(FooyinRenumberTracks VERSION 0.1.2 LANGUAGES CXX)
 if(NOT CMAKE_SIZEOF_VOID_P EQUAL 8)
   message(FATAL_ERROR "Only 64-bit builds are supported.")
 endif()

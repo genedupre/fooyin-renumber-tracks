@@ -7,7 +7,7 @@ FOOYIN_FLATPAK_LIB="$(find /var/lib/flatpak/app/org.fooyin.fooyin/x86_64/stable 
 
 if [ ! -d "$FOOYIN_SOURCE/include/core" ]; then
     echo "fooyin source not found at $FOOYIN_SOURCE"
-    echo "Clone it:  git clone --branch v0.14.1 --depth 1 https://github.com/fooyin/fooyin.git $SCRIPT_DIR/../fooyin"
+    echo "Clone it:  git clone --branch v0.14.1 --depth 1 https://github.com/fooyin/fooyin.git $SCRIPT_DIR/../fooyin-source"
     exit 1
 fi
 
