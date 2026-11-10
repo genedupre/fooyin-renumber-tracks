@@ -32,6 +32,7 @@ private:
     void moveSelected(int direction);
     void moveToDisc();
     void addDisc();
+    void setDiscNumberEnabled(bool enabled);
     void syncFromTree();
     void updatePreview();
     void apply();
@@ -42,6 +43,8 @@ private:
     QSpinBox* m_startNumber;
     QSpinBox* m_discSpin;
     QPushButton* m_moveToDiscBtn;
+    QPushButton* m_addDiscBtn;
+    QCheckBox* m_setDiscNumber;
     QCheckBox* m_padNumbers;
     QList<DiscGroup> m_groups;
     bool m_syncing{false};
