@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "renumberdialog.h"
 #include <core/library/musiclibrary.h>
+#include <QApplication>
 #include <QCheckBox>
 #include <QDropEvent>
 #include <QEvent>
@@ -20,6 +21,10 @@
 using namespace Qt::StringLiterals;
 namespace Fooyin::Renumber {
 namespace {
+constexpr int ItemKindRole = Qt::UserRole + 1;
+constexpr int GroupItemKind = 1;
+constexpr int TrackItemKind = 2;
+
 int discNumber(const Track& t)
 {
     const QString d = t.discNumber().section(u'/', 0, 0).trimmed();
@@ -299,23 +304,50 @@ void RenumberDialog::syncFromTree()
     m_syncing = true;
 
     QList<DiscGroup> newGroups;
+    QSet<int> seenDiscs;
+    QSet<int> seenTracks;
+    bool valid = true;
     for(int g = 0; g < m_tree->topLevelItemCount(); ++g) {
         auto* groupItem = m_tree->topLevelItem(g);
-        if(!groupItem) continue;
+        if(!groupItem || groupItem->data(0, ItemKindRole).toInt() != GroupItemKind) {
+            valid = false;
+            break;
+        }
 
         const int disc = groupItem->data(0, Qt::UserRole).toInt();
+        if(disc < 0 || seenDiscs.contains(disc)) {
+            valid = false;
+            break;
+        }
+        seenDiscs.insert(disc);
 
         DiscGroup group{disc, {}};
         for(int c = 0; c < groupItem->childCount(); ++c) {
             auto* child = groupItem->child(c);
-            group.trackIndices.append(child->data(0, Qt::UserRole).toInt());
+            const int trackIdx = child->data(0, Qt::UserRole).toInt();
+            if(child->data(0, ItemKindRole).toInt() != TrackItemKind || child->childCount() != 0
+               || trackIdx < 0 || trackIdx >= static_cast<int>(m_tracks.size()) || seenTracks.contains(trackIdx)) {
+                valid = false;
+                break;
+            }
+            seenTracks.insert(trackIdx);
+            group.trackIndices.append(trackIdx);
         }
+        if(!valid) break;
         if(!group.trackIndices.isEmpty()) newGroups.append(group);
     }
 
+    valid = valid && seenTracks.size() == static_cast<int>(m_tracks.size());
+    if(!valid) {
+        m_syncing = false;
+        QApplication::beep();
+        updatePreview();
+        return;
+    }
+
     m_groups = newGroups;
-    updatePreview();
     m_syncing = false;
+    updatePreview();
 }
 
 void RenumberDialog::updatePreview()
@@ -335,6 +367,7 @@ void RenumberDialog::updatePreview()
         auto* groupItem = new QTreeWidgetItem(m_tree);
         groupItem->setText(0, group.disc == 0 ? tr("No disc") : tr("Disc %1").arg(group.disc));
         groupItem->setData(0, Qt::UserRole, group.disc);
+        groupItem->setData(0, ItemKindRole, GroupItemKind);
         groupItem->setFlags(groupItem->flags() & ~Qt::ItemIsDragEnabled);
         groupItem->setExpanded(true);
 
@@ -348,6 +381,7 @@ void RenumberDialog::updatePreview()
             item->setText(3, t.artistsJoined(u"; "_s));
             item->setText(4, QFileInfo(t.filepath()).fileName());
             item->setData(0, Qt::UserRole, trackIdx);
+            item->setData(0, ItemKindRole, TrackItemKind);
             if(selectedTrackIndices.contains(trackIdx)) item->setSelected(true);
             ++newNum;
         }
