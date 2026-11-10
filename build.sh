@@ -2,7 +2,7 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-FOOYIN_SOURCE="$(cd "${FOOYIN_SOURCE:-$SCRIPT_DIR/../fooyin}" 2>/dev/null && pwd)"
+FOOYIN_SOURCE="$(cd "${FOOYIN_SOURCE:-$SCRIPT_DIR/../fooyin-source}" 2>/dev/null && pwd)"
 FOOYIN_FLATPAK_LIB="$(find /var/lib/flatpak/app/org.fooyin.fooyin/x86_64/stable -maxdepth 1 -mindepth 1 -type d 2>/dev/null | head -1)/files/lib/fooyin"
 
 if [ ! -d "$FOOYIN_SOURCE/include/core" ]; then

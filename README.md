@@ -22,7 +22,7 @@ Requirements:
 - fooyin v0.14.1 source tree
 
 ```bash
-git clone --branch v0.14.1 --depth 1 https://github.com/fooyin/fooyin.git ../fooyin
+git clone --branch v0.14.1 --depth 1 https://github.com/fooyin/fooyin.git ../fooyin-source
 ./build.sh
 ./install.sh
 ```
