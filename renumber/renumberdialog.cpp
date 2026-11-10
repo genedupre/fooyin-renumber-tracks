@@ -409,10 +409,11 @@ void RenumberDialog::apply()
             Track t = m_tracks[trackIdx];
             const QString newTrackStr = padded(newNum, pad);
             const QString newDiscStr = group.disc == 0 ? QString{} : QString::number(group.disc);
+            const QString groupDiscTotalStr = group.disc == 0 ? QString{} : newDiscTotalStr;
             bool modified = false;
             if(t.trackNumber() != newTrackStr) { t.setTrackNumber(newTrackStr); modified = true; }
             if(t.discNumber() != newDiscStr) { t.setDiscNumber(newDiscStr); modified = true; }
-            if(t.discTotal() != newDiscTotalStr) { t.setDiscTotal(newDiscTotalStr); modified = true; }
+            if(t.discTotal() != groupDiscTotalStr) { t.setDiscTotal(groupDiscTotalStr); modified = true; }
             if(modified) changed.push_back(t);
             ++newNum;
         }
