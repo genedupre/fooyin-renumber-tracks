@@ -398,7 +398,9 @@ void RenumberDialog::apply()
     const bool pad = m_padNumbers->isChecked();
     int discTotal = 0;
     for(const auto& group : m_groups) {
-        discTotal = std::max(discTotal, group.disc);
+        if(!group.trackIndices.isEmpty()) {
+            discTotal = std::max(discTotal, group.disc);
+        }
     }
     const QString newDiscTotalStr = discTotal > 0 ? QString::number(discTotal) : QString{};
     TrackList changed;
