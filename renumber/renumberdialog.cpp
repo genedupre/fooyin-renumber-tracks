@@ -355,6 +355,11 @@ void RenumberDialog::apply()
 {
     const int start = m_startNumber->value();
     const bool pad = m_padNumbers->isChecked();
+    int discTotal = 0;
+    for(const auto& group : m_groups) {
+        discTotal = std::max(discTotal, group.disc);
+    }
+    const QString newDiscTotalStr = discTotal > 0 ? QString::number(discTotal) : QString{};
     TrackList changed;
 
     for(const auto& group : m_groups) {
@@ -366,6 +371,7 @@ void RenumberDialog::apply()
             bool modified = false;
             if(t.trackNumber() != newTrackStr) { t.setTrackNumber(newTrackStr); modified = true; }
             if(t.discNumber() != newDiscStr) { t.setDiscNumber(newDiscStr); modified = true; }
+            if(t.discTotal() != newDiscTotalStr) { t.setDiscTotal(newDiscTotalStr); modified = true; }
             if(modified) changed.push_back(t);
             ++newNum;
         }
