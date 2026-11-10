@@ -265,11 +265,18 @@ void RenumberDialog::addDisc()
 void RenumberDialog::setDiscNumberEnabled(bool enabled)
 {
     if(enabled) {
-        if(m_groups.size() == 1 && m_groups.first().disc == 0) {
+        if(!m_groupsBeforeNoDisc.isEmpty()) {
+            m_groups = m_groupsBeforeNoDisc;
+            m_groupsBeforeNoDisc.clear();
+        }
+        else if(m_groups.size() == 1 && m_groups.first().disc == 0) {
             m_groups.first().disc = 1;
         }
     }
     else {
+        if(std::ranges::any_of(m_groups, [](const DiscGroup& group) { return group.disc > 0; })) {
+            m_groupsBeforeNoDisc = m_groups;
+        }
         QList<int> trackIndices;
         for(const auto& group : m_groups) {
             trackIndices.append(group.trackIndices);

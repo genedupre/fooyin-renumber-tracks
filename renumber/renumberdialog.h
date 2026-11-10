@@ -47,6 +47,7 @@ private:
     QCheckBox* m_setDiscNumber;
     QCheckBox* m_padNumbers;
     QList<DiscGroup> m_groups;
+    QList<DiscGroup> m_groupsBeforeNoDisc;
     bool m_syncing{false};
 };
 } // namespace Renumber
