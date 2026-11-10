@@ -2,7 +2,7 @@
 
 A fooyin plugin that adds a **Renumber Tracks** action to the right-click context menu. Select tracks in a playlist, right-click, and choose **Tagging > Renumber tracks...** to open a dialog where you can reorder and renumber them.
 
-**Plugin version: 0.1.2. Supported: fooyin 0.14.1.** Linux (Flatpak) and Windows x64. This is an independent GPL extension, not an official fooyin release.
+**Plugin version: 0.1.3. Supported: fooyin 0.14.1.** Linux (Flatpak) and Windows x64. This is an independent GPL extension, not an official fooyin release.
 
 ## Features
 
