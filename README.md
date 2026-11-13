@@ -2,12 +2,15 @@
 
 A fooyin plugin that adds a **Renumber Tracks** action to the right-click context menu. Select tracks in a playlist, right-click, and choose **Tagging > Renumber tracks...** to open a dialog where you can reorder and renumber them.
 
-**Supported: fooyin 0.14.1.** Linux (Flatpak) and Windows x64. This is an independent GPL extension, not an official fooyin release.
+**Plugin version: 0.1.3. Supported: fooyin 0.14.1.** Linux (Flatpak) and Windows x64. This is an independent GPL extension, not an official fooyin release.
 
 ## Features
 
 - Renumber selected tracks with a preview before applying
 - Tracks grouped by disc number, each disc renumbers independently
+- Clear **Set disc number** to renumber tracks without a disc tag
+- Disc totals update to the highest assigned disc, or clear with disc numbering
+- Restore the previous disc groups when disc numbering is re-enabled
 - Reorder tracks with Move Up / Move Down buttons
 - Configurable start number (default: 1)
 - Optional zero-padding (01, 02... vs 1, 2...)
@@ -21,7 +24,7 @@ Requirements:
 - fooyin v0.14.1 source tree
 
 ```bash
-git clone --branch v0.14.1 --depth 1 https://github.com/fooyin/fooyin.git ../fooyin
+git clone --branch v0.14.1 --depth 1 https://github.com/fooyin/fooyin.git ../fooyin-source
 ./build.sh
 ./install.sh
 ```
